@@ -1,0 +1,193 @@
+#include <Wire.h>
+#include <Adafruit_VL6180X.h>
+#include <SoftwareSerial.h>
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+SoftwareSerial imuSerial(11, 12);  // RX, TX ของ UNO
+const int YAW_DIRECTION = -1;
+byte packet[8];
+byte packetCount = 0;
+
+float yawRaw = 0;
+float previousYaw = 0;
+float yaw = 0;
+
+bool zeroPending = true;
+bool yawValid = false;
+float POS_NOW = 0;
+////////////////////////////////////////////////////////////////////////////////////////
+
+#define PWM2 5
+#define INA2 7
+#define INB2 8
+#define PWM1 6
+#define INA1 9
+#define INB1 10
+
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+#define disWall 240
+#define TARGET_LEFT 140
+#define TARGET_RIGHT 140
+
+
+
+#define BOTH_WALLS 111
+#define LEFT_WALL_ONLY 112
+#define RIGHT_WALL_ONLY 113
+#define NO_WALLS 114
+
+
+
+int checkWall;
+
+bool leftWall, rightWall;
+float error, lasterror, leftmotor, rightmotor, powermotor;
+
+////////////////////////////////////////////////////////////////////////////////////////
+const uint8_t SENSOR_COUNT = 3;
+
+// เรียงซ้าย กลาง ขวา
+const uint8_t shutdownPins[SENSOR_COUNT] = { 2, 3, 4 };
+const uint8_t addresses[SENSOR_COUNT] = { 0x30, 0x31, 0x32 };
+
+const char *names[SENSOR_COUNT] = {
+  "Left", "Center", "Right"
+};
+
+int F[3];
+Adafruit_VL6180X sensors[SENSOR_COUNT];
+
+void stopWithError(uint8_t index, const char *message) {
+  Serial.print(names[index]);
+  Serial.print(": ");
+  Serial.println(message);
+
+  while (true) {
+    delay(1000);
+  }
+}
+
+void setup() {
+  delay(4000);
+  Serial.begin(115200);
+  pinMode(PWM1, OUTPUT);
+  pinMode(INA1, OUTPUT);
+  pinMode(INB1, OUTPUT);
+  pinMode(PWM2, OUTPUT);
+  pinMode(INA2, OUTPUT);
+  pinMode(INB2, OUTPUT);
+
+
+  // for (uint8_t i = 0; i < SENSOR_COUNT; i++) {
+  //   digitalWrite(shutdownPins[i], LOW);
+  //   pinMode(shutdownPins[i], OUTPUT);
+  // }
+
+  // delay(10);
+  // Wire.begin();
+
+  // for (uint8_t i = 0; i < SENSOR_COUNT; i++) {
+  //   pinMode(shutdownPins[i], INPUT);
+  //   delay(10);
+  //   if (!sensors[i].begin()) {
+  //     stopWithError(i, "Sensor not found. Check wiring.");
+  //   }
+  //   if (!sensors[i].setAddress(addresses[i])) {
+  //     stopWithError(i, "Failed to change I2C address.");
+  //   }
+  // }
+  INIT_ULTRA();
+  // INIT_GYRO();
+  delay(1000);
+
+  // resetYaw();
+  // viewsensor();
+  // viewgyro();
+  run(50, 0.15, 0.35);
+  // ttgyro(50, 0.5, 2, 0, 1000);
+  // turngyro(90);
+  // ttgyro(50, 0.5, 2, 0, 10000);
+
+  // while (1) {
+  //   updateWalls();
+  //   Serial.println(getPositionError());
+  // }
+}
+
+void loop() {
+
+
+  Move(0, 0, 0);
+
+  // tn(50, 0.1, 0.45);
+
+  // Serial.println(calError());
+  // Serial.println(getFollowMode());
+
+  // updateWalls();
+  // Serial.print(leftWall);
+  // Serial.print("\t");
+  // Serial.println(rightWall);
+  // for (uint8_t i = 0; i < SENSOR_COUNT; i++) {
+  //   uint8_t distance = sensors[i].readRange();
+  //   uint8_t status = sensors[i].readRangeStatus();
+
+  //   Serial.print(names[i]);
+  //   Serial.print(": ");
+
+  //   if (status == VL6180X_ERROR_NONE) {
+  //     Serial.print(distance);
+  //     Serial.print(" mm");
+  //   } else {
+  //     Serial.print("Error(");
+  //     Serial.print(status);
+  //     Serial.print(")");
+  //   }
+
+  //   if (i < SENSOR_COUNT - 1) {
+  //     Serial.print(" | ");
+  //   }
+  // }
+
+  // Serial.println();
+  // delay(100);
+}
+
+void INIT_ULTRA() {
+  for (uint8_t i = 0; i < SENSOR_COUNT; i++) {
+    digitalWrite(shutdownPins[i], LOW);
+    pinMode(shutdownPins[i], OUTPUT);
+  }
+
+  delay(10);
+  Wire.begin();
+
+  for (uint8_t i = 0; i < SENSOR_COUNT; i++) {
+    pinMode(shutdownPins[i], INPUT);
+    delay(10);
+    if (!sensors[i].begin()) {
+      stopWithError(i, "Sensor not found. Check wiring.");
+    }
+    if (!sensors[i].setAddress(addresses[i])) {
+      stopWithError(i, "Failed to change I2C address.");
+    }
+  }
+}
+void Move(int speedL, int speedR, int timer) {
+  motor(speedL, speedR);
+  delay(timer);
+}
+
+void viewsensor() {
+  while (1) {
+    readsensor(F);
+    for (int i = 0; i < 3; i++) {
+      Serial.print(F[i]);
+      Serial.print("\t");
+    }
+    Serial.println(" ");
+  }
+}
